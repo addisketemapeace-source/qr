@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=yes">
+    <title>QR Attendance Scanner - Addis Ababa Peace & Security</title>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #2c3e50, #3498db);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            margin: 0;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 24px;
+            padding: 25px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 500px;
+            animation: slideUp 0.3s ease-out;
+        }
+        
+        @keyframes slideUp {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            font-size: 24px;
+        }
+        
+        .scanner-box {
+            width: 100%;
+            height: 400px;
+            background: #2c3e50;
+            border-radius: 16px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            position: relative;
+            border: 4px solid #3498db;
+            box-shadow: 0 10px 30px rgba(52,152,219,0.3);
+        }
+        
+        #placeholder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: white;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        #placeholder i {
+            font-size: 72px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+        
+        #placeholder p {
+            font-size: 16px;
+            line-height: 1.5;
+        }
+        
+        #video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: none;
+        }
+        
+        #canvas {
+            display: none;
+        }
+        
+        .btn {
+            padding: 15px 20px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+            margin: 5px 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #2980b9;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(52,152,219,0.4);
+        }
+        
+        .btn-secondary {
+            background: #95a5a6;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #7f8c8d;
+            transform: translateY(-2px);
+        }
+        
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #229954;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(39,174,96,0.4);
+        }
+        
+        .btn-warning {
+            background: #f39c12;
+            color: white;
+        }
+        
+        .btn-warning:hover {
+            background: #e67e22;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(243,156,18,0.4);
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .btn-group .btn {
+            flex: 1;
+            margin: 0;
+        }
+        
+        .message {
+            padding: 15px;
+            border-radius: 12px;
+            margin: 15px 0;
+            display: none;
+            text-align: center;
+            font-weight: 500;
+        }
+        
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .message.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .result-box {
+            background: #f8f9fa;
+            border-radius: 16px;
+            padding: 25px;
+            margin-top: 20px;
+            display: none;
+            border: 3px solid #27ae60;
+            animation: fadeIn 0.3s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+        
+        .permission-note {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 12px;
+            padding: 15px;
+            margin: 15px 0;
+            color: #856404;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 500;
+        }
+        
+        .data-row {
+            display: flex;
+            padding: 12px 0;
+            border-bottom: 1px solid #ecf0f1;
+        }
+        
+        .data-label {
+            font-weight: 600;
+            width: 100px;
+            color: #2c3e50;
+        }
+        
+        .data-value {
+            flex: 1;
+            color: #34495e;
+            font-weight: 500;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 30px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .instruction-box {
+            background: #e8f4fd;
+            border-radius: 12px;
+            padding: 15px;
+            margin: 15px 0;
+            border-left: 4px solid #3498db;
+        }
+        
+        .instruction-box ol {
+            margin-left: 20px;
+            color: #2c3e50;
+        }
+        
+        .instruction-box li {
+            margin: 8px 0;
+        }
+        
+        .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(255,255,255,0.2);
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+        
+        .close-btn:hover {
+            background: rgba(255,255,255,0.3);
+            transform: scale(1.1);
+        }
+        
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <h2>
+            <i class="fas fa-qrcode" style="color: #3498db;"></i>
+            QR Attendance Scanner
+        </h2>
+        
+        <div class="scanner-box">
+            <div id="placeholder">
+                <i class="fas fa-camera"></i>
+                <p>Camera is off. Click Start Scanner to begin.</p>
+                <p style="font-size: 14px; margin-top: 10px; opacity: 0.7;">Make sure to allow camera access when prompted</p>
+            </div>
+            <video id="video" playsinline></video>
+            <canvas id="canvas"></canvas>
+        </div>
+        
+        <div id="permissionNote" class="permission-note" style="display: none;">
+            <i class="fas fa-info-circle"></i>
+            <span>Click "Allow" when your browser asks for camera permission</span>
+        </div>
+        
+        <div class="instruction-box" id="instructionBox">
+            <i class="fas fa-lightbulb" style="color: #f39c12; margin-right: 8px;"></i>
+            <strong>Quick Tips:</strong>
+            <ol style="margin-top: 10px;">
+                <li>Hold the QR code steady in front of the camera</li>
+                <li>Ensure good lighting on the QR code</li>
+                <li>The scanner will detect automatically</li>
+            </ol>
+        </div>
+        
+        <div class="btn-group">
+            <button id="startBtn" class="btn btn-primary" onclick="startScanner()">
+                <i class="fas fa-play"></i> Start Scanner
+            </button>
+            <button id="stopBtn" class="btn btn-secondary" onclick="stopScanner()" disabled>
+                <i class="fas fa-stop"></i> Stop
+            </button>
+        </div>
+        
+        <div id="message" class="message"></div>
+        
+        <div id="resultBox" class="result-box">
+            <h4 style="color: #27ae60; margin-bottom: 20px; display: flex; align-items: center; gap: 8px;">
+                <i class="fas fa-check-circle" style="font-size: 24px;"></i>
+                Scan Successful!
+            </h4>
+            <div id="resultData"></div>
+            <div class="btn-group">
+                <button class="btn btn-success" onclick="sendResult('checkin')">
+                    <i class="fas fa-sign-in-alt"></i> Check In
+                </button>
+                <button class="btn btn-warning" onclick="sendResult('checkout')">
+                    <i class="fas fa-sign-out-alt"></i> Check Out
+                </button>
+            </div>
+            <button class="btn btn-secondary" style="margin-top: 10px;" onclick="resetScanner()">
+                <i class="fas fa-redo"></i> Scan Again
+            </button>
+        </div>
+        
+        <button class="btn btn-secondary" style="margin-top: 15px;" onclick="window.close()">
+            <i class="fas fa-times"></i> Close Scanner
+        </button>
+    </div>
+    
+    <script>
+        let scannerActive = false;
+        let scannerStream = null;
+        let scannedData = null;
+        
+        function showMessage(text, type) {
+            const msg = document.getElementById('message');
+            const icon = type === 'success' ? 'check-circle' : 
+                        type === 'error' ? 'exclamation-circle' : 'info-circle';
+            msg.innerHTML = '<i class="fas fa-' + icon + '"></i> ' + text;
+            msg.className = 'message ' + type;
+            msg.style.display = 'block';
+        }
+        
+        function hideMessage() {
+            document.getElementById('message').style.display = 'none';
+        }
+        
+        function startScanner() {
+            if (scannerActive) return;
+            
+            document.getElementById('instructionBox').style.display = 'none';
+            document.getElementById('permissionNote').style.display = 'block';
+            showMessage('Requesting camera access...', 'info');
+            
+            // Check if browser supports getUserMedia
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                showMessage('Your browser does not support camera access. Please use a modern browser like Chrome, Firefox, or Safari.', 'error');
+                return;
+            }
+            
+            // Request camera permission with specific constraints for mobile
+            navigator.mediaDevices.getUserMedia({ 
+                video: { 
+                    facingMode: { ideal: 'environment' }, // Prefer rear camera
+                    width: { min: 640, ideal: 1280 },
+                    height: { min: 480, ideal: 720 }
+                },
+                audio: false
+            })
+            .then(function(stream) {
+                console.log('Camera permission granted');
+                scannerActive = true;
+                scannerStream = stream;
+                
+                document.getElementById('permissionNote').style.display = 'none';
+                document.getElementById('startBtn').disabled = true;
+                document.getElementById('stopBtn').disabled = false;
+                
+                const video = document.getElementById('video');
+                const placeholder = document.getElementById('placeholder');
+                
+                video.srcObject = stream;
+                video.style.display = 'block';
+                placeholder.style.display = 'none';
+                
+                // Play video with promise catch
+                video.play().catch(function(e) {
+                    console.error('Video play error:', e);
+                    showMessage('Error playing video: ' + e.message, 'error');
+                });
+                
+                showMessage('Scanner ready - show QR code', 'success');
+                
+                // Start scanning loop
+                requestAnimationFrame(scanQR);
+            })
+            .catch(function(error) {
+                document.getElementById('permissionNote').style.display = 'none';
+                document.getElementById('instructionBox').style.display = 'block';
+                
+                console.error('Camera error:', error.name, error.message);
+                
+                if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                    showMessage('❌ Camera access denied. Please follow these steps:', 'error');
+                    
+                    // Show detailed instructions based on browser
+                    const isChrome = navigator.userAgent.indexOf('Chrome') > -1;
+                    const isFirefox = navigator.userAgent.indexOf('Firefox') > -1;
+                    const isSafari = navigator.userAgent.indexOf('Safari') > -1 && navigator.userAgent.indexOf('Chrome') === -1;
+                    
+                    let instructions = '';
+                    if (isChrome) {
+                        instructions = '1. Click the camera icon 🔒 in the address bar<br>2. Select "Allow"<br>3. Click "Start Scanner" again';
+                    } else if (isFirefox) {
+                        instructions = '1. Click the camera icon in the address bar<br>2. Select "Allow"<br>3. Click "Start Scanner" again';
+                    } else if (isSafari) {
+                        instructions = '1. Go to Settings → Safari → Camera<br>2. Set to "Allow"<br>3. Refresh this page';
+                    } else {
+                        instructions = 'Please allow camera access in your browser settings and try again.';
+                    }
+                    
+                    document.getElementById('message').innerHTML = `
+                        <i class="fas fa-exclamation-circle"></i> Camera access denied.<br><br>
+                        <div style="text-align: left; background: #2c3e50; color: white; padding: 15px; border-radius: 8px; margin-top: 10px;">
+                            ${instructions}
+                        </div>
+                    `;
+                } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+                    showMessage('No camera found on this device. Please use manual entry.', 'error');
+                } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+                    showMessage('Camera is already in use by another application. Please close other apps and try again.', 'error');
+                } else {
+                    showMessage('Camera error: ' + error.message, 'error');
+                }
+            });
+        }
+        
+        function stopScanner() {
+            scannerActive = false;
+            
+            if (scannerStream) {
+                scannerStream.getTracks().forEach(function(track) {
+                    track.stop();
+                });
+                scannerStream = null;
+            }
+            
+            const video = document.getElementById('video');
+            const placeholder = document.getElementById('placeholder');
+            
+            if (video) {
+                video.style.display = 'none';
+                video.srcObject = null;
+            }
+            if (placeholder) {
+                placeholder.style.display = 'flex';
+            }
+            
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            document.getElementById('instructionBox').style.display = 'block';
+            
+            hideMessage();
+        }
+        
+        function scanQR() {
+            if (!scannerActive) return;
+            
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('canvas');
+            const context = canvas.getContext('2d');
+            
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                try {
+                    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                    const code = jsQR(imageData.data, canvas.width, canvas.height, {
+                        inversionAttempts: "dontInvert"
+                    });
+                    
+                    if (code) {
+                        console.log('QR Code detected:', code.data);
+                        stopScanner();
+                        processQRData(code.data);
+                        return;
+                    }
+                } catch (e) {
+                    // Ignore scanning errors
+                }
+            }
+            
+            requestAnimationFrame(scanQR);
+        }
+        
+        function processQRData(data) {
+            showMessage('Processing QR data...', 'info');
+            
+            let memberData = {};
+            
+            try {
+                // Try to parse as JSON first
+                memberData = JSON.parse(data);
+            } catch (e) {
+                // If not JSON, parse as text lines
+                const lines = data.split('\n');
+                lines.forEach(function(line) {
+                    const parts = line.split(':');
+                    if (parts.length >= 2) {
+                        const key = parts[0].trim().toLowerCase();
+                        const value = parts.slice(1).join(':').trim();
+                        
+                        if (key.includes('member_id') || key.includes('id')) {
+                            memberData.Member_ID = value;
+                        } else if (key.includes('full_name') || key.includes('name')) {
+                            memberData.Full_Name = value;
+                        } else if (key.includes('phone')) {
+                            memberData.Phone = value;
+                        }
+                    }
+                });
+            }
+            
+            scannedData = memberData;
+            
+            const resultDiv = document.getElementById('resultBox');
+            const resultData = document.getElementById('resultData');
+            
+            let html = '';
+            if (memberData.Member_ID) {
+                html += '<div class="data-row"><span class="data-label">Member ID:</span> <span class="data-value">' + escapeHtml(memberData.Member_ID) + '</span></div>';
+            }
+            if (memberData.Full_Name) {
+                html += '<div class="data-row"><span class="data-label">Name:</span> <span class="data-value">' + escapeHtml(memberData.Full_Name) + '</span></div>';
+            }
+            if (memberData.Phone) {
+                html += '<div class="data-row"><span class="data-label">Phone:</span> <span class="data-value">' + escapeHtml(memberData.Phone) + '</span></div>';
+            }
+            
+            if (!html) {
+                html = '<div class="data-row"><span class="data-label">QR Data:</span> <span class="data-value">' + escapeHtml(data.substring(0, 100)) + '</span></div>';
+            }
+            
+            resultData.innerHTML = html;
+            resultDiv.style.display = 'block';
+            showMessage('Scan successful!', 'success');
+        }
+        
+        function sendResult(action) {
+            if (window.opener && scannedData) {
+                window.opener.postMessage({
+                    type: 'QR_SCAN_RESULT',
+                    data: scannedData,
+                    action: action
+                }, '*');
+                showMessage('✓ Data sent! Closing window...', 'success');
+                setTimeout(function() {
+                    window.close();
+                }, 1500);
+            } else {
+                // If no opener, store in localStorage and close
+                localStorage.setItem('qrScanResult', JSON.stringify({
+                    data: scannedData,
+                    action: action,
+                    timestamp: new Date().getTime()
+                }));
+                showMessage('✓ Data saved! You can now close this window.', 'success');
+            }
+        }
+        
+        function resetScanner() {
+            document.getElementById('resultBox').style.display = 'none';
+            startScanner();
+        }
+        
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // Check for saved results from previous scans
+        function checkForSavedResults() {
+            const saved = localStorage.getItem('qrScanResult');
+            if (saved) {
+                try {
+                    const result = JSON.parse(saved);
+                    const now = new Date().getTime();
+                    // Only use results less than 1 minute old
+                    if (now - result.timestamp < 60000) {
+                        scannedData = result.data;
+                        document.getElementById('resultData').innerHTML = 
+                            '<div class="data-row"><span class="data-label">Member ID:</span> <span class="data-value">' + 
+                            escapeHtml(result.data.Member_ID || 'N/A') + '</span></div>';
+                        document.getElementById('resultBox').style.display = 'block';
+                    }
+                    localStorage.removeItem('qrScanResult');
+                } catch (e) {}
+            }
+        }
+        
+        // Handle messages from parent window
+        window.addEventListener('message', function(event) {
+            console.log('Message received:', event.data);
+        });
+        
+        // Auto-start scanner after page loads
+        window.onload = function() {
+            console.log('QR Scanner page loaded');
+            checkForSavedResults();
+            setTimeout(startScanner, 1000);
+        };
+        
+        // Handle page visibility
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden && scannerActive) {
+                stopScanner();
+            }
+        });
+    </script>
+</body>
+</html>
