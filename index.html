@@ -316,6 +316,20 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        .location-box {
+            background: #e8f4fd;
+            border-radius: 12px;
+            padding: 10px 15px;
+            margin: 10px 0;
+            border-left: 4px solid #27ae60;
+            font-size: 13px;
+        }
+        
+        .location-box i {
+            color: #27ae60;
+            margin-right: 8px;
+        }
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -339,6 +353,12 @@
         <div id="permissionNote" class="permission-note" style="display: none;">
             <i class="fas fa-info-circle"></i>
             <span>Click "Allow" when your browser asks for camera permission</span>
+        </div>
+        
+        <!-- Location status indicator -->
+        <div id="locationStatus" class="location-box" style="display: none;">
+            <i class="fas fa-map-marker-alt"></i>
+            <span id="locationText">Getting your location...</span>
         </div>
         
         <div class="instruction-box" id="instructionBox">
@@ -368,6 +388,7 @@
                 Scan Successful!
             </h4>
             <div id="resultData"></div>
+            <div id="resultLocation" style="margin: 10px 0; padding: 8px; background: #e8f4fd; border-radius: 8px; font-size: 12px;"></div>
             <div class="btn-group">
                 <button class="btn btn-success" onclick="sendResult('checkin')">
                     <i class="fas fa-sign-in-alt"></i> Check In
@@ -390,6 +411,78 @@
         let scannerActive = false;
         let scannerStream = null;
         let scannedData = null;
+        let currentLocation = null;
+        let locationUrl = '';
+        
+        // Get device location on page load
+        function getDeviceLocation() {
+            const locationStatus = document.getElementById('locationStatus');
+            const locationText = document.getElementById('locationText');
+            
+            if (!navigator.geolocation) {
+                locationStatus.style.display = 'block';
+                locationText.innerHTML = '❌ Location not supported on this device';
+                return;
+            }
+            
+            locationStatus.style.display = 'block';
+            locationText.innerHTML = '📍 Requesting location permission...';
+            
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    const lat = position.coords.latitude.toFixed(6);
+                    const lng = position.coords.longitude.toFixed(6);
+                    
+                    // Create OpenStreetMap URL
+                    locationUrl = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=18/${lat}/${lng}`;
+                    
+                    currentLocation = {
+                        lat: lat,
+                        lng: lng,
+                        url: locationUrl
+                    };
+                    
+                    locationStatus.style.display = 'block';
+                    locationText.innerHTML = `📍 Location captured: ${lat}, ${lng}`;
+                    
+                    console.log('Location captured:', locationUrl);
+                },
+                function(error) {
+                    console.error('Location error:', error);
+                    let errorMsg = '';
+                    
+                    switch(error.code) {
+                        case error.PERMISSION_DENIED:
+                            errorMsg = '❌ Location permission denied';
+                            break;
+                        case error.POSITION_UNAVAILABLE:
+                            errorMsg = '❌ Location information unavailable';
+                            break;
+                        case error.TIMEOUT:
+                            errorMsg = '❌ Location request timed out';
+                            break;
+                        default:
+                            errorMsg = '❌ Unknown location error';
+                    }
+                    
+                    locationStatus.style.display = 'block';
+                    locationText.innerHTML = errorMsg;
+                    
+                    // Use fallback location (Addis Ababa center)
+                    locationUrl = 'https://www.openstreetmap.org/?mlat=9.0308&mlon=38.7363#map=15/9.0308/38.7363';
+                    currentLocation = {
+                        lat: '9.0308',
+                        lng: '38.7363',
+                        url: locationUrl
+                    };
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
+                }
+            );
+        }
         
         function showMessage(text, type) {
             const msg = document.getElementById('message');
@@ -586,6 +679,7 @@
             
             const resultDiv = document.getElementById('resultBox');
             const resultData = document.getElementById('resultData');
+            const resultLocation = document.getElementById('resultLocation');
             
             let html = '';
             if (memberData.Member_ID) {
@@ -602,16 +696,30 @@
                 html = '<div class="data-row"><span class="data-label">QR Data:</span> <span class="data-value">' + escapeHtml(data.substring(0, 100)) + '</span></div>';
             }
             
+            // Add location info
+            if (currentLocation) {
+                resultLocation.innerHTML = '<i class="fas fa-map-marker-alt" style="color: #27ae60;"></i> <strong>Location:</strong> <a href="' + currentLocation.url + '" target="_blank" style="color: #3498db;">View on Map</a> (' + currentLocation.lat + ', ' + currentLocation.lng + ')';
+            } else {
+                resultLocation.innerHTML = '<i class="fas fa-exclamation-triangle" style="color: #f39c12;"></i> <strong>Location:</strong> Not available';
+            }
+            
             resultData.innerHTML = html;
             resultDiv.style.display = 'block';
             showMessage('Scan successful!', 'success');
         }
         
         function sendResult(action) {
-            if (window.opener && scannedData) {
+            // Add location data to the scanned data
+            const dataToSend = {
+                ...scannedData,
+                location: currentLocation ? currentLocation.url : '',
+                location_coords: currentLocation ? `${currentLocation.lat},${currentLocation.lng}` : ''
+            };
+            
+            if (window.opener) {
                 window.opener.postMessage({
                     type: 'QR_SCAN_RESULT',
-                    data: scannedData,
+                    data: dataToSend,
                     action: action
                 }, '*');
                 showMessage('✓ Data sent! Closing window...', 'success');
@@ -621,7 +729,7 @@
             } else {
                 // If no opener, store in localStorage and close
                 localStorage.setItem('qrScanResult', JSON.stringify({
-                    data: scannedData,
+                    data: dataToSend,
                     action: action,
                     timestamp: new Date().getTime()
                 }));
@@ -670,7 +778,9 @@
         window.onload = function() {
             console.log('QR Scanner page loaded');
             checkForSavedResults();
-            setTimeout(startScanner, 1000);
+            // Get device location first, then start scanner
+            getDeviceLocation();
+            setTimeout(startScanner, 1500);
         };
         
         // Handle page visibility
