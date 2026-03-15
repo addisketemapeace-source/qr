@@ -330,6 +330,21 @@
             color: #27ae60;
             margin-right: 8px;
         }
+
+        .duplicate-warning {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 12px;
+            padding: 15px;
+            margin: 15px 0;
+            text-align: center;
+        }
+        
+        .duplicate-warning i {
+            color: #f39c12;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -402,6 +417,16 @@
             </button>
         </div>
         
+        <!-- Duplicate Warning Modal (hidden by default) -->
+        <div id="duplicateWarning" class="duplicate-warning" style="display: none;">
+            <i class="fas fa-exclamation-triangle"></i>
+            <h3 style="color: #856404; margin: 10px 0;">Duplicate Attendance Detected</h3>
+            <p id="duplicateMessage"></p>
+            <button class="btn btn-secondary" onclick="document.getElementById('duplicateWarning').style.display='none'; resetScanner();" style="margin-top: 10px;">
+                <i class="fas fa-redo"></i> Scan Again
+            </button>
+        </div>
+        
         <button class="btn btn-secondary" style="margin-top: 15px;" onclick="window.close()">
             <i class="fas fa-times"></i> Close Scanner
         </button>
@@ -413,6 +438,7 @@
         let scannedData = null;
         let currentLocation = null;
         let locationUrl = '';
+        let isProcessing = false;
         
         // Get device location on page load
         function getDeviceLocation() {
@@ -495,6 +521,12 @@
         
         function hideMessage() {
             document.getElementById('message').style.display = 'none';
+        }
+        
+        function showDuplicateWarning(message) {
+            document.getElementById('duplicateMessage').innerHTML = message;
+            document.getElementById('duplicateWarning').style.display = 'block';
+            document.getElementById('resultBox').style.display = 'none';
         }
         
         function startScanner() {
@@ -633,8 +665,9 @@
                         inversionAttempts: "dontInvert"
                     });
                     
-                    if (code) {
+                    if (code && !isProcessing) {
                         console.log('QR Code detected:', code.data);
+                        isProcessing = true;
                         stopScanner();
                         processQRData(code.data);
                         return;
@@ -709,36 +742,66 @@
         }
         
         function sendResult(action) {
+            // Check if we have member ID
+            if (!scannedData || !scannedData.Member_ID) {
+                showMessage('❌ No valid member ID in QR code', 'error');
+                return;
+            }
+            
             // Add location data to the scanned data
             const dataToSend = {
                 ...scannedData,
                 location: currentLocation ? currentLocation.url : '',
-                location_coords: currentLocation ? `${currentLocation.lat},${currentLocation.lng}` : ''
+                location_coords: currentLocation ? `${currentLocation.lat},${currentLocation.lng}` : '',
+                timestamp: new Date().toISOString(),
+                action: action
             };
             
             if (window.opener) {
+                // Send data to parent window
                 window.opener.postMessage({
                     type: 'QR_SCAN_RESULT',
                     data: dataToSend,
                     action: action
                 }, '*');
-                showMessage('✓ Data sent! Closing window...', 'success');
-                setTimeout(function() {
-                    window.close();
-                }, 1500);
+                
+                showMessage('✓ Data sent! Checking for duplicates...', 'info');
+                
+                // Wait for response from parent
+                window.addEventListener('message', function onResponse(event) {
+                    if (event.data.type === 'DUPLICATE_CHECK_RESULT') {
+                        window.removeEventListener('message', onResponse);
+                        
+                        if (event.data.isDuplicate) {
+                            // Show duplicate warning
+                            showDuplicateWarning(event.data.message);
+                            isProcessing = false;
+                        } else {
+                            // Success - close window
+                            showMessage('✓ Check-in recorded! Closing...', 'success');
+                            setTimeout(function() {
+                                window.close();
+                            }, 1500);
+                        }
+                    }
+                });
+                
             } else {
-                // If no opener, store in localStorage and close
+                // If no opener, store in localStorage
                 localStorage.setItem('qrScanResult', JSON.stringify({
                     data: dataToSend,
                     action: action,
                     timestamp: new Date().getTime()
                 }));
                 showMessage('✓ Data saved! You can now close this window.', 'success');
+                isProcessing = false;
             }
         }
         
         function resetScanner() {
             document.getElementById('resultBox').style.display = 'none';
+            document.getElementById('duplicateWarning').style.display = 'none';
+            isProcessing = false;
             startScanner();
         }
         
@@ -768,11 +831,6 @@
                 } catch (e) {}
             }
         }
-        
-        // Handle messages from parent window
-        window.addEventListener('message', function(event) {
-            console.log('Message received:', event.data);
-        });
         
         // Auto-start scanner after page loads
         window.onload = function() {
